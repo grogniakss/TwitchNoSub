@@ -32,9 +32,8 @@ function baseUrl(req) {
     return `${proto}://${host}`;
 }
 
-function linksFor(base, vod, key) {
-    const url = key ? `${base}/vod/${vod.id}/${key}.m3u8` : `${base}/vod/${vod.id}.m3u8`;
-    return { url, downloadUrl: `${url}?download=1`, vlcUrl: `vlc://${url}` };
+function playlistPath(vod, key) {
+    return key ? `/vod/${vod.id}/${key}.m3u8` : `/vod/${vod.id}.m3u8`;
 }
 
 function fileName(vod, key) {
@@ -71,17 +70,22 @@ async function handle(req, res) {
 
         const vod = await getVod(vodId);
         const base = baseUrl(req);
+        const masterUrl = base + playlistPath(vod);
         return sendJson(res, 200, {
             ...vod,
-            auto: linksFor(base, vod),
+            // Only playlist that needs this server: the CDN has no master playlist.
+            master: { url: masterUrl, downloadUrl: `${masterUrl}?download=1` },
+            // url / vlcUrl are the direct CDN stream; downloadUrl is a file whose
+            // content only references the CDN.
             qualities: vod.qualities.map(q => ({
                 key: q.key,
                 label: q.label,
                 resolution: q.resolution,
                 frameRate: q.frameRate,
                 hevc: q.hevc,
-                cdnUrl: q.cdnUrl,
-                ...linksFor(base, vod, q.key),
+                url: q.cdnUrl,
+                vlcUrl: `vlc://${q.cdnUrl}`,
+                downloadUrl: `${base}${playlistPath(vod, q.key)}?download=1`,
             })),
         });
     }
@@ -89,8 +93,7 @@ async function handle(req, res) {
     let match = path.match(/^\/vod\/(\d+)\.m3u8$/);
     if (match) {
         const vod = await getVod(match[1]);
-        const base = baseUrl(req);
-        const body = buildMasterPlaylist(vod.qualities, key => linksFor(base, vod, key).url);
+        const body = buildMasterPlaylist(vod.qualities, q => q.cdnUrl);
         return sendPlaylist(res, body, download, fileName(vod));
     }
 

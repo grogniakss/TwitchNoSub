@@ -4,7 +4,7 @@ import { buildMasterPlaylist, rewriteMediaPlaylist } from "../src/playlist.js";
 
 const CDN = "https://d3stzm2eumvgb4.cloudfront.net/abc_zerator_1_2/chunked/index-dvr.m3u8";
 
-test("rewriteMediaPlaylist makes URIs absolute and swaps unmuted segments", () => {
+test("rewriteMediaPlaylist makes URIs absolute and keeps unmuted segments", () => {
     const input = [
         "#EXTM3U",
         "#EXT-X-MAP:URI=\"init-0.mp4\"",
@@ -20,7 +20,7 @@ test("rewriteMediaPlaylist makes URIs absolute and swaps unmuted segments", () =
     assert.equal(out[1], "#EXT-X-MAP:URI=\"https://d3stzm2eumvgb4.cloudfront.net/abc_zerator_1_2/chunked/init-0.mp4\"");
     assert.equal(out[2], "#EXTINF:10.000,");
     assert.equal(out[3], "https://d3stzm2eumvgb4.cloudfront.net/abc_zerator_1_2/chunked/0.mp4");
-    assert.equal(out[5], "https://d3stzm2eumvgb4.cloudfront.net/abc_zerator_1_2/chunked/1-muted.ts");
+    assert.equal(out[5], "https://d3stzm2eumvgb4.cloudfront.net/abc_zerator_1_2/chunked/1-unmuted.ts");
 });
 
 test("rewriteMediaPlaylist handles CRLF and already absolute URLs", () => {
@@ -32,7 +32,7 @@ test("buildMasterPlaylist lists each quality", () => {
     const out = buildMasterPlaylist([
         { key: "chunked", bandwidth: 12_000_000, codec: "hev1.1.6.L93.B0", resolution: null, frameRate: null },
         { key: "720p60", bandwidth: 3_000_000, codec: "avc1.4D001E", resolution: "1280x720", frameRate: 60 },
-    ], key => `http://h/vod/1/${key}.m3u8`);
+    ], q => `http://h/vod/1/${q.key}.m3u8`);
 
     assert.equal(out, [
         "#EXTM3U",

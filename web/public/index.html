@@ -53,8 +53,12 @@
   .meta p { margin: 0; color: var(--muted); font-size: 14px; }
   .meta a { color: var(--accent); text-decoration: none; }
   .row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--border); flex-wrap: wrap; }
-  .row.auto { background: color-mix(in srgb, var(--accent) 8%, transparent); }
   .q { flex: 1; min-width: 150px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .link {
+    order: 3; flex: 1 1 100%; min-width: 0; padding: 6px 8px; font: 12px/1.4 ui-monospace, Consolas, monospace;
+    color: var(--muted); background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; outline: none;
+  }
+  .link:focus { color: var(--text); border-color: var(--accent); }
   .q strong { font-size: 15px; }
   .badge { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: var(--badge); color: var(--muted); }
   .badge.hevc { background: #ffb31a33; color: #e89b00; }
@@ -90,11 +94,11 @@
   <details>
     <summary>Aide</summary>
     <ul>
+      <li>Tous les liens pointent directement vers le flux Twitch (CloudFront) : ce serveur n'est plus utilisé pendant la lecture.</li>
       <li><strong>Ouvrir dans VLC</strong> : fonctionne directement sur Android / iOS. Sur Windows, lancez une fois
         <code>web\tools\windows\install-vlc-protocol.cmd</code> pour que les liens <code>vlc://</code> ouvrent VLC.</li>
-      <li><strong>.m3u8</strong> : télécharge une playlist à ouvrir avec VLC (clic droit → Ouvrir avec → VLC).</li>
       <li><strong>Copier le lien</strong> : à coller dans VLC via <em>Média → Ouvrir un flux réseau</em> (Ctrl+N).</li>
-      <li><strong>Auto</strong> contient toutes les qualités ; le lecteur choisit la meilleure.</li>
+      <li><strong>Fichier .m3u8</strong> : télécharge la playlist (qui ne contient que des liens Twitch) à ouvrir avec VLC.</li>
       <li><strong>HEVC</strong> : la qualité source de certaines VOD est en H.265, lisible par VLC/mpv mais pas par tous les appareils. Choisissez 1080p60/720p60 en cas de souci.</li>
     </ul>
   </details>
@@ -103,11 +107,12 @@
 <template id="row-tpl">
   <div class="row">
     <div class="q"></div>
+    <input class="link" type="text" readonly aria-label="Lien direct du flux">
     <div class="actions">
       <a class="btn primary" data-vlc>▶ Ouvrir dans VLC</a>
-      <a class="btn" data-dl>.m3u8</a>
       <button type="button" data-copy>Copier le lien</button>
       <button type="button" data-mpv>Commande mpv</button>
+      <a class="btn" data-dl>Fichier .m3u8</a>
     </div>
   </div>
 </template>
@@ -149,9 +154,11 @@
     setTimeout(() => { button.textContent = label; button.classList.remove("copied"); }, 1500);
   }
 
-  function renderRow(label, badges, links, extraClass) {
+  function renderRow(label, badges, links) {
     const row = rowTpl.content.firstElementChild.cloneNode(true);
-    if (extraClass) row.classList.add(extraClass);
+    const link = row.querySelector(".link");
+    link.value = links.url;
+    link.onfocus = () => link.select();
     const q = row.querySelector(".q");
     q.append(Object.assign(document.createElement("strong"), { textContent: label }));
     for (const [text, cls] of badges) {
@@ -191,7 +198,6 @@
     head.append(thumb, meta);
     card.append(head);
 
-    card.append(renderRow("Auto", [["toutes qualités"]], vod.auto, "auto"));
     for (const q of vod.qualities) {
       const badges = [];
       if (q.hevc) badges.push(["HEVC", "hevc"]);
