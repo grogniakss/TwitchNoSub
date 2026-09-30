@@ -1,0 +1,15 @@
+{
+    "name": "twitchnosub-web",
+    "version": "1.0.0",
+    "description": "Self-hosted site that turns a Twitch VOD link into an m3u8 playlist for VLC / mpv",
+    "type": "module",
+    "private": true,
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "start": "node src/server.js",
+        "test": "node --test",
+        "check": "node scripts/check.js"
+    }
+}

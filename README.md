@@ -27,6 +27,10 @@ Download the latest .**xpi** file in the [releases section](https://github.com/b
 - Drag and drop the xpi file on Firefox
 - Click on "Add" in the little confirmation popup
 
+## Web version (self-hosted)
+
+The [`web/`](web/) folder contains a self-hosted site: paste a VOD link and get an m3u8 playlist to open in VLC / mpv. See [web/README.md](web/README.md).
+
 ## Warning
 
 This extension is still in work in progress, if there is any issue please report it.

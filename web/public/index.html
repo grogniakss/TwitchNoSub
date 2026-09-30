@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Twitch VOD → m3u8</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%239147ff'/%3E%3Cpath d='M12 9l12 7-12 7z' fill='white'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0e0e10; --surface: #18181b; --surface-2: #1f1f23; --border: #2f2f35;
+    --text: #efeff1; --muted: #adadb8; --accent: #9147ff; --accent-hover: #772ce8;
+    --danger: #ff6b6b; --ok: #00c07f; --badge: #3a3a3d;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f7f7f8; --surface: #ffffff; --surface-2: #f0f0f2; --border: #dedee3;
+      --text: #0e0e10; --muted: #53535f; --badge: #e5e5ea; --danger: #d13b3b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 860px; margin: 0 auto; padding: 40px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  form { display: flex; gap: 8px; }
+  input[type=text] {
+    flex: 1; min-width: 0; padding: 12px 14px; font: inherit; color: var(--text);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+  button, .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 12px; font: inherit; font-size: 13px; font-weight: 600; white-space: nowrap;
+    color: var(--text); background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 6px; cursor: pointer; text-decoration: none;
+  }
+  button:hover, .btn:hover { border-color: var(--muted); }
+  .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  form .primary { padding: 12px 20px; font-size: 15px; }
+  button:disabled { opacity: .6; cursor: progress; }
+  .status { margin: 20px 0 0; color: var(--muted); min-height: 1.5em; }
+  .status.error { color: var(--danger); }
+  .card { margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .head { display: flex; gap: 16px; padding: 16px; }
+  .thumb { width: 240px; flex: none; aspect-ratio: 16/9; border-radius: 8px; background: var(--surface-2) center/cover; }
+  .meta { min-width: 0; }
+  .meta h2 { font-size: 17px; margin: 0 0 6px; overflow-wrap: anywhere; }
+  .meta p { margin: 0; color: var(--muted); font-size: 14px; }
+  .meta a { color: var(--accent); text-decoration: none; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .row.auto { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .q { flex: 1; min-width: 150px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .q strong { font-size: 15px; }
+  .badge { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; background: var(--badge); color: var(--muted); }
+  .badge.hevc { background: #ffb31a33; color: #e89b00; }
+  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .copied { border-color: var(--ok) !important; color: var(--ok); }
+  details { margin-top: 28px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; }
+  summary { cursor: pointer; font-weight: 600; }
+  details p, details li { color: var(--muted); font-size: 14px; }
+  code { background: var(--surface-2); padding: 1px 5px; border-radius: 4px; font-size: 13px; overflow-wrap: anywhere; }
+  @media (max-width: 600px) {
+    main { padding-top: 24px; }
+    form { flex-direction: column; }
+    .head { flex-direction: column; }
+    .thumb { width: 100%; }
+    .actions { width: 100%; }
+    .actions > * { flex: 1; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Twitch VOD <span>→</span> m3u8</h1>
+  <p class="sub">Collez le lien d'une VOD Twitch (même réservée aux abonnés) pour l'ouvrir dans VLC, mpv ou tout lecteur HLS.</p>
+
+  <form id="form">
+    <input id="input" type="text" placeholder="https://www.twitch.tv/videos/123456789" autocomplete="off" autofocus>
+    <button class="primary" id="go" type="submit">Récupérer</button>
+  </form>
+
+  <p class="status" id="status"></p>
+  <div id="result"></div>
+
+  <details>
+    <summary>Aide</summary>
+    <ul>
+      <li><strong>Ouvrir dans VLC</strong> : fonctionne directement sur Android / iOS. Sur Windows, lancez une fois
+        <code>web\tools\windows\install-vlc-protocol.cmd</code> pour que les liens <code>vlc://</code> ouvrent VLC.</li>
+      <li><strong>.m3u8</strong> : télécharge une playlist à ouvrir avec VLC (clic droit → Ouvrir avec → VLC).</li>
+      <li><strong>Copier le lien</strong> : à coller dans VLC via <em>Média → Ouvrir un flux réseau</em> (Ctrl+N).</li>
+      <li><strong>Auto</strong> contient toutes les qualités ; le lecteur choisit la meilleure.</li>
+      <li><strong>HEVC</strong> : la qualité source de certaines VOD est en H.265, lisible par VLC/mpv mais pas par tous les appareils. Choisissez 1080p60/720p60 en cas de souci.</li>
+    </ul>
+  </details>
+</main>
+
+<template id="row-tpl">
+  <div class="row">
+    <div class="q"></div>
+    <div class="actions">
+      <a class="btn primary" data-vlc>▶ Ouvrir dans VLC</a>
+      <a class="btn" data-dl>.m3u8</a>
+      <button type="button" data-copy>Copier le lien</button>
+      <button type="button" data-mpv>Commande mpv</button>
+    </div>
+  </div>
+</template>
+
+<script>
+  const form = document.getElementById("form");
+  const input = document.getElementById("input");
+  const go = document.getElementById("go");
+  const statusEl = document.getElementById("status");
+  const result = document.getElementById("result");
+  const rowTpl = document.getElementById("row-tpl");
+
+  function setStatus(text, isError = false) {
+    statusEl.textContent = text;
+    statusEl.classList.toggle("error", isError);
+  }
+
+  function formatDuration(total) {
+    const h = Math.floor(total / 3600), m = Math.floor(total % 3600 / 60), s = total % 60;
+    return h ? `${h}h${String(m).padStart(2, "0")}` : `${m}min${String(s).padStart(2, "0")}`;
+  }
+
+  const TYPES = { archive: "Rediffusion", highlight: "Temps fort", upload: "Upload" };
+
+  async function copy(text, button) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Clipboard API needs HTTPS or localhost; fallback for plain HTTP on LAN.
+      const ta = Object.assign(document.createElement("textarea"), { value: text });
+      document.body.append(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    const label = button.textContent;
+    button.textContent = "Copié ✓";
+    button.classList.add("copied");
+    setTimeout(() => { button.textContent = label; button.classList.remove("copied"); }, 1500);
+  }
+
+  function renderRow(label, badges, links, extraClass) {
+    const row = rowTpl.content.firstElementChild.cloneNode(true);
+    if (extraClass) row.classList.add(extraClass);
+    const q = row.querySelector(".q");
+    q.append(Object.assign(document.createElement("strong"), { textContent: label }));
+    for (const [text, cls] of badges) {
+      q.append(Object.assign(document.createElement("span"), { className: `badge ${cls || ""}`, textContent: text }));
+    }
+    row.querySelector("[data-vlc]").href = links.vlcUrl;
+    row.querySelector("[data-dl]").href = links.downloadUrl;
+    row.querySelector("[data-copy]").onclick = e => copy(links.url, e.currentTarget);
+    row.querySelector("[data-mpv]").onclick = e => copy(`mpv "${links.url}"`, e.currentTarget);
+    return row;
+  }
+
+  function render(vod) {
+    const card = document.createElement("div");
+    card.className = "card";
+
+    const head = document.createElement("div");
+    head.className = "head";
+    const thumb = document.createElement("div");
+    thumb.className = "thumb";
+    if (vod.thumbnail) thumb.style.backgroundImage = `url("${vod.thumbnail}")`;
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    const title = Object.assign(document.createElement("h2"), { textContent: vod.title || `VOD ${vod.id}` });
+    const channel = document.createElement("p");
+    channel.append(Object.assign(document.createElement("a"), {
+      href: `https://www.twitch.tv/${vod.channelLogin}`, target: "_blank", rel: "noopener", textContent: vod.channel,
+    }));
+    const info = Object.assign(document.createElement("p"), {
+      textContent: [
+        new Date(vod.createdAt).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }),
+        formatDuration(vod.lengthSeconds),
+        TYPES[vod.broadcastType] || vod.broadcastType,
+      ].join(" · "),
+    });
+    meta.append(title, channel, info);
+    head.append(thumb, meta);
+    card.append(head);
+
+    card.append(renderRow("Auto", [["toutes qualités"]], vod.auto, "auto"));
+    for (const q of vod.qualities) {
+      const badges = [];
+      if (q.hevc) badges.push(["HEVC", "hevc"]);
+      if (q.key === "chunked") badges.push(["qualité d'origine"]);
+      card.append(renderRow(q.label, badges, q));
+    }
+
+    result.replaceChildren(card);
+  }
+
+  async function resolve(value) {
+    value = value.trim();
+    if (!value) return;
+    go.disabled = true;
+    setStatus("Recherche des qualités disponibles…");
+    result.replaceChildren();
+    try {
+      const resp = await fetch(`/api/resolve?input=${encodeURIComponent(value)}`);
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `Erreur ${resp.status}`);
+      render(data);
+      setStatus("");
+      const url = new URL(location.href);
+      url.searchParams.set("v", data.id);
+      history.replaceState(null, "", url);
+    } catch (err) {
+      setStatus(err.message, true);
+    } finally {
+      go.disabled = false;
+    }
+  }
+
+  form.addEventListener("submit", e => { e.preventDefault(); resolve(input.value); });
+  input.addEventListener("paste", () => setTimeout(() => resolve(input.value), 0));
+
+  const initial = new URLSearchParams(location.search).get("v");
+  if (initial) { input.value = initial; resolve(initial); }
+</script>
+</body>
+</html>

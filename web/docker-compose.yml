@@ -1,0 +1,10 @@
+services:
+  twitch-vod:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Public address used in generated links, e.g. https://vod.example.com
+      # (optional: otherwise derived from Host / X-Forwarded-* headers).
+      - PUBLIC_URL=
